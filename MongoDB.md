@@ -166,7 +166,12 @@ mongo
 
 - 增
   - `db.collection_name.insert()`
+  - `db.collection.insertOne()` 3.2版本以后才有
+  - `db.collection.insertMany()` 3.2版本以后才有
+  - 当我们向集合中插入文档时，如果没有给文档指定`_id`属性，则数据库会自动为文档添加`_id`，该属性用来作为文档的唯一标识，是根据时间戳来生成的。
+  - `_id` 可以自己指定，但必须要保证它的唯一性。如果我们指定了，数据库就不会给我们添加了。
 - 删
 - 查
+  - `db.collection_name.find()`
 - 改
 
