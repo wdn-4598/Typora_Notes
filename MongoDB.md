@@ -1,24 +1,3 @@
-# 1. 简介
-
-MongoDB是一个开源、高性能（C++编写）、基于分布式的文档型数据库，是NoSQL数据库产品中的一种。
-
-先来看看SQL和MongoDB术语的对应关系，方便我们对MongoDB有一个大概的了解。
-
-| SQL术语/概念 | MongoDB术语/概念 | 解释/说明                                                    |
-| ------------ | ---------------- | ------------------------------------------------------------ |
-| database     | database         | 数据库                                                       |
-| table        | collection       | 数据库表/集合                                                |
-| row          | document         | 数据记录(行)/文档                                            |
-| column       | field            | 数据字段/域                                                  |
-| index        | index            | 索引                                                         |
-| table joins  |                  | 表连接，MongoDB不支持                                        |
-|              | 嵌入文档         | MongoDB通过嵌入式文档来替代多表连接<br/>（查询效率要比表连接要高） |
-| primary key  | primary key      | 主键，MongoDB自动将_id字段设置为主键                         |
-
-## 1.1 数据模型
-
-> 
-
 | 数据类型       | 描述                                                         | 举例                                                         |
 | -------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | 字符串         | UTF-8字符串都可表示为字符串类型的数据                        | {“x” : “foobar”}                                             |
@@ -51,6 +30,8 @@ MongoDB是一个开源、高性能（C++编写）、基于分布式的文档型�
 
 ## 1. 简介
 
+MongoDB是一个开源、高性能（C++编写）、基于分布式的文档型数据库，是NoSQL数据库产品中的一种。
+
 MongoDB的数据模型是面向文档的，所谓文档是一种类似JSON的结构。简单理解MongoDB数据库，它存的是各种各样的JSON（BSON）。
 
 三个概念：
@@ -59,10 +40,27 @@ MongoDB的数据模型是面向文档的，所谓文档是一种类似JSON的结
 - 集合（collection）：类似于数组，在collection中可以存放document；
 - 文档（document）
   - 文档数据库中的最小存储单位，我们存储和操作的内容都是文档；
-  - 由字段和值对（`filed:value`）组成，字段的数据类型是`字符型`，它的值除了使用基本的一些类型外，还可以包括`其他文档`、`普通数组`和`文档数组`。
+  - 由字段和值对（`filed:value`）组成，字段的数据类型是`字符型`，它的值除了使用基本的一些类型外，还可以包括`其他文档`、`普通数组`和`文档数组`。当一个文档的属性值是文档时，我们称之为内嵌文档。
 
 
 > 数据在MongoDB中以 BSON（Binary-JSON）文档的格式存储在磁盘上。BSON（Binary Serialized Document Format）是一种类json的一种二进制形式的存储格式，简称Binary JSON。BSON和JSON一样，支持内嵌的文档对象和数组对象，但是BSON有JSON没有的一些数据类型，如Date和BinData类型。
+
+
+
+先来看看SQL和MongoDB术语的对应关系，方便我们对MongoDB有一个大概的了解。
+
+| SQL术语/概念 | MongoDB术语/概念 | 解释/说明                                                    |
+| ------------ | ---------------- | ------------------------------------------------------------ |
+| database     | database         | 数据库                                                       |
+| table        | collection       | 数据库表/集合                                                |
+| row          | document         | 数据记录(行)/文档                                            |
+| column       | field            | 数据字段/域                                                  |
+| index        | index            | 索引                                                         |
+| table joins  |                  | 表连接，MongoDB不支持                                        |
+|              | 嵌入文档         | MongoDB通过嵌入式文档来替代多表连接<br/>（查询效率要比表连接要高） |
+| primary key  | primary key      | 主键，MongoDB自动将_id字段设置为主键                         |
+
+## 1.1 数据模型
 
 ## 2. 单机部署（Windows为例）
 
@@ -159,10 +157,16 @@ mongo
 - 进入到指定数据库中：`use db_name`
 - 当前所在的数据库：`db`，db表示的是当前所处的数据库
 - 显示所在数据库中的所有集合：`show collections`
+- 删除集合：`db.collection_name.drop()`，如果数据库中只有一个集合，那删掉集合的同时会把数据库也删了
+- 删除数据库：`db.dropDatabase()`
 
-## 3.2 CRUD
+### 3.2 CRUD
 
 官方文档：https://docs.mongodb.com/manual/crud/
+
+https://docs.mongodb.com/manual/tutorial/getting-started/
+
+查询选择器：https://docs.mongodb.com/manual/reference/operator/query/#std-label-query-selectors
 
 - 增
   - `db.collection_name.insert()`
@@ -171,7 +175,102 @@ mongo
   - 当我们向集合中插入文档时，如果没有给文档指定`_id`属性，则数据库会自动为文档添加`_id`，该属性用来作为文档的唯一标识，是根据时间戳来生成的。
   - `_id` 可以自己指定，但必须要保证它的唯一性。如果我们指定了，数据库就不会给我们添加了。
 - 删
-- 查
-  - `db.collection_name.find()`
-- 改
+  - `db.collection_name.remove()`
+    - `remove()` 可以根据条件来删除文档，传递条件的方式和 `find()` 一样
+    - `remove()` 必须要有参数，`find()` 可以没有参数
+    - `remove({})` 如果只传递一个空对象作为参数，则会删除集合中的所有文档。即清空集合，性能略差
+    - 默认情况下会删除符合条件的所有文档，如果`remove()`第二个参数传递一个true，则只会删除一个
 
+  - `db.collection_name.deleteOne()`
+  - `db.collection_name.deleteMany()`
+
+- 查 [查询选择器](https://docs.mongodb.com/manual/reference/operator/query/#std-label-query-selectors)
+  - `db.collection_name.find()` 效果等价于 `db.collection_name.find({})`，用来查询集合中所有符合条件的文档，返回的是数组
+  - `db.collection_name.find({k1:v1, k2:v2, ...})` 查询属性是指定值的文档
+  - `db.collection_name.findOne()` 返回符合条件的第一个文档，返回的是一个文档对象
+  - `find().count()` 查询符合条件的结果数目
+  - `find().limit(10)` 查询前10条数据
+  - `find().skip(10).limit(10)` 跳过前10条，查询前11~20这10条数据；skip 和 limit 可以互换位置，效果一样。因为MongoDB会自动调整两者之间的关系。
+  - MongoDB支持直接通过内嵌文档的属性进行查询，如果要查询内嵌文档则可以通过`.`的形式来匹配，同时属性名必须要使用引号
+    - 比如`db.users.find("hobby.movies":"hero")`
+  - 条件 `{k:v}`中的 `:` 并不是 `==` 的意思，而是 `in` 的意思
+  - `$set` 是完全替换掉这个属性，类似于重新赋值，`$push` 用于往数组里添加一个新的元素
+  - `$addToSet` 往数组里添加一个新的元素，如果数组中已经存在了该元素，则不会添加
+- 改
+  - `db.collection_name.update(查询条件, 新对象, 默认配置)` 默认会使用新对象来完全替换旧对象
+    - 如果需要修改指定的属性，而不是替换，需要使用 修改操作符 来完成修改
+    - `update()` 多个符合条件时，默认只会修改一个。可以在第三个参数里修改默认配置。
+    - `$set` 可以用来修改文档中的指定属性
+    - `$unset` 可以用来删除文档的指定属性
+    - `db.collection_name.update({查询条件}, {$set:{k1:v1, ...}}, {默认配置})`
+  - `db.collection_name.updateMany()` 同时修改多个符合条件的文档
+  - `db.collection_name.updateOne()` 修改一个符合条件的文档
+  - `db.collection_name.replaceOne()` 替换一个文档
+
+
+
+```shell
+# 向numbers中插入2w条数据---速度慢7.2s
+for(var i=1; i<=20000; i++){
+	db.numbers.insert({num:i});
+}
+
+# 速度快的做法 0.4s
+var arr = [];
+for(var i=1; i<=20000; i++){
+	arr.push({num:i});
+}
+db.numbers.insert(arr);
+```
+
+### 3.3 文档之间的关系
+
+可以通过内嵌文档的形式来体现出一下关系：
+
+- 一对一
+- 一对多
+- 多对多
+
+### 3.4 排序
+
+查询文档时，默认情况是按照 `_id` 的值进行排列（升序）
+
+`sort()` 可以用来指定文档的排列规则，它需要传递一个对象来指定排序规则，1表示升序，-1表示降序
+
+limit、skip、sort可以以任意的顺序进行排序
+
+### 3.5 投影
+
+在查询时，可以在第二个参数的位置来设置查询结果的投影。也就是说，一个文档有多个属性，我们只想要其中的一个或者几个属性，并不想全部获取，这就是投影。
+
+----
+
+# Mongoose
+
+## 1. 简介
+
+Mongoose就是一个让我们可以通过Node来操作MongoDB的模块。它是一个对象文档模型（ODM）库，它对Node原生的MongoDB模块进行了进一步的优化封装，并提供了更多的功能。
+
+好处：
+
+- 可以为文档创建一个模式结构（Schema）
+- 可以对模型中的对象/文档进行验证
+- 数据可以通过类型转换转换为对象模型
+- 可以使用中间件来应用业务逻辑挂钩
+- 比Node原生的MongoDB驱动更容易
+
+Mongoose中为我们提供了几个新的对象：
+
+- Schema（模式对象）
+
+  - Schema对象定义约束了数据库中的文档结构
+
+- Model
+
+  - Model对象作为集合中的所有文档的表示，相当于MongoDB数据库中的集合Collection
+
+- Document
+
+  - Document表示集合中的具体文档，相当于集合中的一个具体的文档
+
+  
