@@ -205,6 +205,8 @@ public interface UserMapper {
 
 
 > 3、编写Mapper.xml配置文件（由原来的UserDaoImpl转变为一个Mapper配置文件）
+>
+> namespace中的包名一定要和 Dao/Mapper 接口的包名一致！！！
 
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
@@ -297,7 +299,7 @@ maven由于他的约定大于配置，我们之后可能遇到我们写的配置
 
 #### SqlSession
 
-每个线程都应该有它自己的 SqlSession 实例。SqlSession 的实例不是线程安全的，因此**是不能被共享的，所以它的最佳的作用域是请求或方法作用域。 绝对不能将 SqlSession 实例的引用放在一个类的静态域，甚至一个类的实例变量也不行。 也绝不能将 SqlSession 实例的引用放在任何类型的托管作用域中，**比如 Servlet 框架中的 HttpSession。 如果你现在正在使用一种 Web 框架，考虑将 SqlSession 放在一个和 HTTP 请求相似的作用域中。 换句话说，**每次收到 HTTP 请求，就可以打开一个 SqlSession，返回一个响应后，就关闭它。** 这个关闭操作很重要，为了确保每次都能执行关闭操作，你应该把这个关闭操作放到 finally 块中。 下面的示例就是一个确保 SqlSession 关闭的标准模式：
+每个线程都应该有它自己的 SqlSession 实例。SqlSession 的实例不是线程安全的，因此 **是不能被共享的，所以它的最佳的作用域是请求或方法作用域。 绝对不能将 SqlSession 实例的引用放在一个类的静态域，甚至一个类的实例变量也不行。 也绝不能将 SqlSession 实例的引用放在任何类型的托管作用域中，** 比如 Servlet 框架中的 HttpSession。 如果你现在正在使用一种 Web 框架，考虑将 SqlSession 放在一个和 HTTP 请求相似的作用域中。 换句话说，**每次收到 HTTP 请求，就可以打开一个 SqlSession，返回一个响应后，就关闭它。** 这个关闭操作很重要，为了确保每次都能执行关闭操作，你应该把这个关闭操作放到 finally 块中。 下面的示例就是一个确保 SqlSession 关闭的标准模式：
 
 ```java
 try (SqlSession session = sqlSessionFactory.openSession()) {
@@ -308,4 +310,527 @@ try (SqlSession session = sqlSessionFactory.openSession()) {
 
 
 ## 3. CRUD
+
+### 3.1 Select
+
+`select` 标签：
+
+- `id`：对应的 namespace 中的方法名
+- `resultType`：sql语句执行的返回值类型
+- `parameterType`：方法的参数类型
+
+
+
+**需求：根据id查询用户**
+
+> 1、编写接口
+
+在UserMapper中添加对应方法
+
+```java
+public interface UserMapper {
+   //查询全部用户
+   List<User> selectUser();
+   //根据id查询用户
+   User selectUserById(int id);
+}
+```
+
+> 2、在UserMapper.xml中添加Select语句
+
+```xml
+<select id="selectUserById" resultType="com.kuang.pojo.User">
+  select * from user where id = #{id}
+</select>
+```
+
+> 3、测试类中测试
+
+```java
+@Test
+public void tsetSelectUserById() {
+    
+    SqlSession session = MybatisUtils.getSession();
+    
+    UserMapper mapper = session.getMapper(UserMapper.class);
+    
+    User user = mapper.selectUserById(1);
+    System.out.println(user);
+    
+    session.close();
+}
+```
+
+
+
+### 3.2 Insert
+
+**需求：给数据库增加一个用户**
+
+> 1、在UserMapper接口中添加对应的方法
+
+```java
+//添加一个用户
+int addUser(User user);
+```
+
+> 2、在UserMapper.xml中添加insert语句
+
+```xml
+<!-- 对象里的属性，可以直接取出来-->
+<insert id="addUser" parameterType="com.kuang.pojo.User">
+    insert into user (id,name,pwd) values (#{id},#{name},#{pwd})
+</insert>
+```
+
+> 3、测试
+
+```java
+@Test
+public void testAddUser() {
+    
+    SqlSession session = MybatisUtils.getSession();
+   
+    UserMapper mapper = session.getMapper(UserMapper.class);
+    
+    User user = new User(5,"王五","12345");
+    int i = mapper.addUser(user);
+    System.out.println(i);
+    
+    //提交事务,重点!不写的话不会提交到数据库
+    session.commit(); 
+    
+    session.close();
+}
+```
+
+==**注意点：增、删、改操作需要提交事务！否则不会生效！**==
+
+### 3.3 update
+
+**需求：修改用户的信息**
+
+> 1、编写接口方法
+
+```java
+//修改一个用户
+int updateUser(User user);
+```
+
+> 2、编写对应的配置文件SQL
+
+```xml
+<update id="updateUser" parameterType="com.kuang.pojo.User">
+  update user set name=#{name},pwd=#{pwd} where id = #{id}
+</update>
+```
+
+> 3、测试
+
+```java
+@Test
+public void testUpdateUser() {
+    SqlSession session = MybatisUtils.getSession();
+    
+    UserMapper mapper = session.getMapper(UserMapper.class);
+    
+    User user = mapper.selectUserById(1);
+    user.setPwd("asdfgh");
+    int i = mapper.updateUser(user);
+    System.out.println(i);
+    
+    //提交事务,重点!不写的话不会提交到数据库
+    session.commit(); 
+    
+    session.close();
+}
+```
+
+### 3.4 Delete
+
+**需求：根据id删除一个用户**
+
+> 1、编写接口方法
+
+```java
+// 根据id删除用户
+int deleteUser(int id);
+```
+
+> 2、编写对应的配置文件SQL
+
+```xml
+<delete id="deleteUser" parameterType="int">
+  delete from user where id = #{id}
+</delete>
+```
+
+> 3、测试
+
+```java
+@Test
+public void testDeleteUser() {
+    SqlSession session = MybatisUtils.getSession();
+    
+    UserMapper mapper = session.getMapper(UserMapper.class);
+    
+    int i = mapper.deleteUser(5);
+    System.out.println(i);
+    
+    //提交事务,重点!不写的话不会提交到数据库
+    session.commit(); 
+    
+    session.close();
+}
+```
+
+
+
+### 3.5 小结
+
+易出错点：
+
+- 这里的`resource`需要绑定的是路径，要用`/`
+
+  ```xml
+  <mappers>
+      <mapper resource="com/kuang/dao/UserMapper.xml"/>
+  </mappers>
+  ```
+
+- 这里的`namespace`需要用到的是`.`
+
+  ```xml
+  <mapper namespace="com.kuang.dao.UserMapper">
+      <select id="selectUser" resultType="com.kuang.pojo.User">
+          select * from user
+    	</select>
+  </mapper>
+  ```
+
+- 假设实体类或者数据库中的表，字段或者参数过多，我们应当考虑使用Map！
+
+  ```java
+  // 接口里写一个增加用户的方法
+  int addUser2(Map<String, Object> map);
+  ```
+
+  ```xml
+  <!--xml文件-->
+  <insert id="addUser2" parameterType="map">
+      insert into user (id,name,pwd) values (#{userId},#{userName},#{userPwd})
+  </insert>
+  ```
+
+  ```java
+  // 测试
+  @Test
+  public void testAddUser2() {  
+      SqlSession session = MybatisUtils.getSession(); 
+      UserMapper mapper = session.getMapper(UserMapper.class);
+     
+      Map<String, Object> map = new HashMap<String, Object>();
+      map.put("userId", 5);
+      map.put("userName", "李四");
+      map.put("userPwd", "34135");
+  
+      mapper.addUser2(map);
+      
+      session.commit(); 
+      session.close();
+  }
+  ```
+
+- Map传递参数，直接在sql中取出key即可！
+
+- 对象传递参数，直接在sql中取对象的属性即可！
+
+- 只有一个基本类型参数的情况下，可以直接在sql中取到！
+
+
+
+## 4. 配置解析
+
+### 4.1 核心配置文件
+
+MyBatis 的配置文件`mybatis-config.xml`（可自定义名字）包含了会深深影响 MyBatis 行为的设置和属性信息。 
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+  PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+  <environments default="development">
+    <environment id="development">
+      <transactionManager type="JDBC"/>
+      <dataSource type="POOLED">
+        <property name="driver" value="${driver}"/>
+        <property name="url" value="${url}"/>
+        <property name="username" value="${username}"/>
+        <property name="password" value="${password}"/>
+      </dataSource>
+    </environment>
+  </environments>
+  <mappers>
+    <mapper resource="org/mybatis/example/BlogMapper.xml"/>
+  </mappers>
+</configuration>
+```
+
+
+
+配置文档的顶层结构如下：（注意元素节点的顺序！顺序不对会报错）
+
+- configuration（配置）
+  - properties（属性）
+  - settings（设置）
+  - typeAliases（类型别名）
+  - typeHandlers（类型处理器）
+  - objectFactory（对象工厂）
+  - plugins（插件）
+  - environments（环境配置）
+    - environment（环境变量）
+      - transactionManager（事务管理器）
+      - dataSource（数据源）
+  - databaseIdProvider（数据库厂商标识）
+  - mappers（映射器）
+
+
+
+#### 属性 properties
+
+数据库这些属性可以在外部进行配置，并可以进行动态替换。你既可以在典型的 Java 属性文件中配置这些属性，也可以在 properties 元素的子元素中设置。举例如下：
+
+> 第一步：在资源目录下新建一个db.properties文件
+
+```xml
+driver=com.mysql.jdbc.Driver
+url=jdbc:mysql://localhost:3306/mybatis?useSSL=true&useUnicode=true&characterEncoding=utf8
+username=root
+password=123456
+```
+
+> 第二步：将外部配置文件（db.properties）导入核心配置文件（mybatis-config.xml）
+
+```xml
+<configuration>
+
+    <!--导入properties文件-->
+    <properties resource="db.properties"/>
+
+    <environments default="development">
+        <environment id="development">
+            <transactionManager type="JDBC"/>
+            <dataSource type="POOLED">
+                <property name="driver" value="${driver}"/>  <!--${}动态替换-->
+                <property name="url" value="${url}"/>
+                <property name="username" value="${username}"/>
+                <property name="password" value="${password}"/>
+            </dataSource>
+        </environment>
+    </environments>
+    <mappers>
+        <mapper resource="mapper/UserMapper.xml"/>
+    </mappers>
+</configuration>
+```
+
+> 如果一个属性在不只一个地方进行了配置，那么，MyBatis 将按照下面的顺序来加载：
+>
+> - 首先读取在 properties 元素体内指定的属性。
+> - 然后根据 properties 元素中的 resource 属性读取类路径下属性文件，或根据 url 属性指定的路径读取属性文件，并覆盖之前读取过的同名属性。
+> - 最后读取作为方法参数传递的属性，并覆盖之前读取过的同名属性。
+>
+> 因此，**通过方法参数传递的属性具有最高优先级，resource/url 属性中指定的配置文件次之，最低优先级的则是 properties 元素中指定的属性。**
+
+
+
+#### 设置 settings
+
+这是 MyBatis 中极为重要的调整设置，它们会改变 MyBatis 的运行时行为。 下表描述了设置中各项设置的含义、默认值等。（只列举常用的，其余的可在官网上看）
+
+| 设置名       | 描述                                                     | 有效值        | 默认值 |
+| :----------- | :------------------------------------------------------- | :------------ | :----- |
+| cacheEnabled | 全局性地开启或关闭所有映射器配置文件中已配置的任何缓存。 | true \| false | true   |
+| lazyLoadingEnabled | 延迟加载的全局开关。当开启时，所有关联对象都会延迟加载。 特定关联关系中可通过设置 `fetchType` 属性来覆盖该项的开关状态。 | true \| false | false |
+| useGeneratedKeys   | 允许 JDBC 支持自动生成主键，需要数据库驱动支持。如果设置为 true，将强制使用自动生成主键。尽管一些数据库驱动不支持此特性，但仍可正常工作（如 Derby）。 | true \| false | False |
+| mapUnderscoreToCamelCase | 是否开启驼峰命名自动映射，即从经典数据库列名 A_COLUMN 映射到经典 Java 属性名 aColumn。 | true \| false                                                | False  |
+| logImpl                  | 指定 MyBatis 所用日志的具体实现，未指定时将自动查找。        | SLF4J \| LOG4J(deprecated since 3.5.9) \| LOG4J2 \| JDK_LOGGING \| COMMONS_LOGGING \| STDOUT_LOGGING \| NO_LOGGING<br />（日志实现） | 未设置 |
+
+一个配置完整的 settings 元素的示例如下：
+
+```xml
+<settings>
+  <setting name="cacheEnabled" value="true"/>
+  <setting name="lazyLoadingEnabled" value="true"/>
+  <setting name="multipleResultSetsEnabled" value="true"/>
+  <setting name="useColumnLabel" value="true"/>
+  <setting name="useGeneratedKeys" value="false"/>
+  <setting name="autoMappingBehavior" value="PARTIAL"/>
+  <setting name="autoMappingUnknownColumnBehavior" value="WARNING"/>
+  <setting name="defaultExecutorType" value="SIMPLE"/>
+  <setting name="defaultStatementTimeout" value="25"/>
+  <setting name="defaultFetchSize" value="100"/>
+  <setting name="safeRowBoundsEnabled" value="false"/>
+  <setting name="mapUnderscoreToCamelCase" value="false"/>
+  <setting name="localCacheScope" value="SESSION"/>
+  <setting name="jdbcTypeForNull" value="OTHER"/>
+  <setting name="lazyLoadTriggerMethods" value="equals,clone,hashCode,toString"/>
+</settings>
+```
+
+
+
+#### 类型别名 typeAliases
+
+类型别名可为 Java 类型设置一个缩写名字。 它仅用于 XML 配置，意在降低冗余的全限定类名书写。例如：
+
+```xml
+<typeAliases>
+  <typeAlias alias="Author" type="domain.blog.Author"/>
+  <typeAlias alias="Blog" type="domain.blog.Blog"/>
+  <typeAlias alias="Comment" type="domain.blog.Comment"/>
+  <typeAlias alias="Post" type="domain.blog.Post"/>
+  <typeAlias alias="Section" type="domain.blog.Section"/>
+  <typeAlias alias="Tag" type="domain.blog.Tag"/>
+</typeAliases>
+```
+
+当这样配置时，`Blog` 可以用在任何使用 `domain.blog.Blog` 的地方。
+
+也可以指定一个包名，MyBatis 会在包名下面搜索需要的 Java Bean，比如：
+
+```xml
+<typeAliases>
+  <package name="domain.blog"/>
+</typeAliases>
+```
+
+每一个在包 `domain.blog` 中的 Java Bean，**在没有注解的情况下，会使用 Bean 的首字母小写的非限定类名来作为它的别名。** 比如 `domain.blog.Author` 的别名为 `author`；若有注解，则别名为其注解值。见下面的例子：
+
+```java
+@Alias("author")
+public class Author {
+    ...
+```
+
+下面是一些为常见的 Java 类型内建的类型别名。它们都是不区分大小写的，注意，为了应对原始类型的命名重复，采取了特殊的命名风格。
+
+| 别名       | 映射的类型 |
+| :--------- | :--------- |
+| _byte      | byte       |
+| _long      | long       |
+| _short     | short      |
+| _int       | int        |
+| _integer   | int        |
+| _double    | double     |
+| _float     | float      |
+| _boolean   | boolean    |
+| string     | String     |
+| byte       | Byte       |
+| long       | Long       |
+| short      | Short      |
+| int        | Integer    |
+| integer    | Integer    |
+| double     | Double     |
+| float      | Float      |
+| boolean    | Boolean    |
+| date       | Date       |
+| decimal    | BigDecimal |
+| bigdecimal | BigDecimal |
+| object     | Object     |
+| map        | Map        |
+| hashmap    | HashMap    |
+| list       | List       |
+| arraylist  | ArrayList  |
+| collection | Collection |
+| iterator   | Iterator   |
+
+#### 类型处理器 typeHandlers
+
+- 无论是 MyBatis 在预处理语句（PreparedStatement）中设置一个参数时，还是从结果集中取出一个值时， 都会用类型处理器将获取的值以合适的方式转换成 Java 类型。
+- 你可以重写类型处理器或创建你自己的类型处理器来处理不支持的或非标准的类型。【了解即可】
+
+#### 对象工厂 objectFactory
+
+- MyBatis 每次创建结果对象的新实例时，它都会使用一个对象工厂（ObjectFactory）实例来完成。
+- 默认的对象工厂需要做的仅仅是实例化目标类，要么通过默认构造方法，要么在参数映射存在的时候通过有参构造方法来实例化。
+- 如果想覆盖对象工厂的默认行为，则可以通过创建自己的对象工厂来实现。【了解即可】
+
+#### 插件 plugins
+
+- mybatis-generator-core
+- mybatis-plus
+- 通用mapper
+
+#### 环境配置 environments
+
+```xml
+<environments default="development">
+    <environment id="development">
+        <transactionManager type="JDBC"/>
+        <dataSource type="POOLED">
+            <property name="driver" value="${driver}"/>
+            <property name="url" value="${url}"/>
+            <property name="username" value="${username}"/>
+            <property name="password" value="${password}"/>
+        </dataSource>
+    </environment>
+</environments>
+```
+
+
+
+MyBatis 可以配置成适应多种环境，**不过要记住：尽管可以配置多个环境，但每个 SqlSessionFactory 实例只能选择一种环境。每个数据库对应一个 SqlSessionFactory 实例！**
+
+为了指定创建哪种环境，只要将它作为可选的参数传递给 SqlSessionFactoryBuilder 即可。可以接受环境配置的两个方法签名是：
+
+```java
+SqlSessionFactory factory = new SqlSessionFactoryBuilder().build(reader, environment);
+SqlSessionFactory factory = new SqlSessionFactoryBuilder().build(reader, environment, properties);
+```
+
+如果忽略了环境参数，那么将会加载默认环境，如下所示：
+
+```java
+SqlSessionFactory factory = new SqlSessionFactoryBuilder().build(reader);
+SqlSessionFactory factory = new SqlSessionFactoryBuilder().build(reader, properties);
+```
+
+> **事务管理器（transactionManager）**
+>
+> `<transactionManager type="JDBC"/>`
+
+在 MyBatis 中有两种类型的事务管理器：
+
+- JDBC – 这个配置直接使用了 JDBC 的提交和回滚设施，它依赖从数据源获得的连接来管理事务作用域。
+
+- MANAGED – 这个配置几乎没做什么。它从不提交或回滚一个连接，而是让容器来管理事务的整个生命周期（比如 JEE 应用服务器的上下文）。 默认情况下它会关闭连接。然而一些容器并不希望连接被关闭，因此需要将 closeConnection 属性设置为 false 来阻止默认的关闭行为。例如:
+
+  ```xml
+  <transactionManager type="MANAGED">
+    <property name="closeConnection" value="false"/>
+  </transactionManager>
+  ```
+
+**提示** 如果你正在使用 Spring + MyBatis，则没有必要配置事务管理器，因为 Spring 模块会使用自带的管理器来覆盖前面的配置。
+
+> **数据源（dataSource）**
+>
+> `<dataSource type="POOLED">`
+
+dataSource 元素使用标准的 JDBC 数据源接口来配置 JDBC 连接对象的资源。
+
+有三种内建的数据源类型：
+
+- **UNPOOLED**：这个数据源的实现会每次请求时打开和关闭连接。
+- **POOLED**：种数据源的实现利用“池”的概念将 JDBC 连接对象组织起来，避免了创建新的连接实例时所必需的初始化和认证时间。 这种处理方式很流行，能使并发 Web 应用快速响应请求。
+- **JNDI** ：这个数据源实现是为了能在如 EJB 或应用服务器这类容器中使用，容器可以集中或在外部配置数据源，然后放置一个 JNDI 上下文的数据源引用。
+
+数据源也有很多第三方的实现，比如dbcp，c3p0，druid等等....
+
+> Mybatis默认的事务管理器就是JDBC，连接池是POOLED
+
+#### 映射器 mappers
 
