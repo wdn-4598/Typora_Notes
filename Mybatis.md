@@ -1336,7 +1336,151 @@ public void testGetAllUser() {
 
 ### 9.3 CRUD
 
+改造 MybatisUtils 工具类的`getSession()`方法，实现自动提交事务。
 
+```java
+// 获取SqlSession连接
+public static SqlSession getSession(){
+    return getSession(true); //事务自动提交
+}
+
+public static SqlSession getSession(boolean flag){
+    return sqlSessionFactory.openSession(flag);
+}
+```
+
+【注意】确保实体类和数据库字段对应
+
+#### 查询
+
+1、编写接口方法注解
+
+```java
+// 根据id查询用户
+@Select("select * from user where id = #{uid}")
+User selectUserById(@Param("uid") int id);
+```
+
+2、测试
+
+```java
+@Test
+public void testSelectUserById() {
+   SqlSession session = MybatisUtils.getSession();
+   UserMapper mapper = session.getMapper(UserMapper.class);
+
+   User user = mapper.selectUserById(1);
+   System.out.println(user);
+
+   session.close();
+}
+```
+
+#### 增加
+
+1、编写接口方法注解
+
+```java
+// 添加一个用户
+@Insert("insert into user (id,name,pwd) values (#{id},#{name},#{pwd})")
+int addUser(User user);
+```
+
+2、测试
+
+```java
+@Test
+public void testAddUser() {
+   SqlSession session = MybatisUtils.getSession();
+   UserMapper mapper = session.getMapper(UserMapper.class);
+
+   User user = new User(6, "秦疆", "123456");
+   mapper.addUser(user);
+
+   session.close();
+}
+```
+
+#### 修改
+
+1、编写接口方法注解
+
+```java
+// 修改一个用户 #{}里的变量名跟User类的属性名一样
+@Update("update user set name=#{name},pwd=#{pwd} where id = #{id}")
+int updateUser(User user);
+```
+
+2、测试
+
+```java
+@Test
+public void testUpdateUser() {
+   SqlSession session = MybatisUtils.getSession();
+   UserMapper mapper = session.getMapper(UserMapper.class);
+
+   User user = new User(6, "秦疆", "zxcvbn");
+   mapper.updateUser(user);
+
+   session.close();
+}
+```
+
+#### 删除
+
+1、编写接口方法注解
+
+```java
+// 根据id删除用
+@Delete("delete from user where id = #{id}")
+int deleteUser(@Param("id")int id);
+```
+
+2、测试
+
+```java
+@Test
+public void testDeleteUser() {
+   SqlSession session = MybatisUtils.getSession();
+   UserMapper mapper = session.getMapper(UserMapper.class);
+
+   mapper.deleteUser(6);
+   
+   session.close();
+}
+```
+
+【注意点：增删改一定记得对事务的处理】
+
+### 9.4 关于@Param
+
+`@Param(xxx)`注解用于给方法参数起一个名字，以便于sql语句使用`#{xxx}`来取。以下是总结的使用原则：
+
+- 在方法只接受一个参数的情况下，可以不使用`@Param`。
+- 在方法接受多个参数的情况下，建议一定要使用`@Param`注解给参数命名。
+- 如果参数是JavaBean， 则不能使用`@Param`。
+- 基本类型的参数或者String类型，需要加上`@Param`。
+- 引用类型不需要加
+- 如果是只有一个基本类型的话，可以忽略，但是建议大家都加上
+- 不使用`@Param`注解时，参数只能有一个，并且是Javabean。
+
+### 9.5 #与$的区别
+
+- `#{}` 的作用主要是替换预编译语句(PrepareStatement)中的占位符`?` ，能够很大程度上防止SQL注入【推荐使用】
+
+  ```sql
+  INSERT INTO user (name) VALUES (#{name});
+  INSERT INTO user (name) VALUES (?);
+  ```
+
+- `${}` 的作用是直接进行字符串替换
+
+  ```sql
+  INSERT INTO user (name) VALUES ('${name}');
+  INSERT INTO user (name) VALUES ('kuangshen');
+  ```
+
+> 使用注解和配置文件协同开发，才是MyBatis的最佳实践！
 
 ## 10. Mybatis详细的执行流程
 
