@@ -1024,7 +1024,327 @@ public void testSelectUserById() {
 
 如果世界总是这么简单就好了。但是肯定不是的，数据库中，存在一对多，多对一的情况，我们之后会使用到一些高级的结果集映射，association，collection这些，这将在之后讲解，目前需要把这些知识都消化掉才是最重要的！理解结果集映射的这个概念！
 
-
-
 ## 7. 日志
+
+### 7.1 日志工厂
+
+思考：我们在测试SQL的时候，要是能够在控制台输出 SQL 的话，是不是就能够有更快的排错效率？
+
+如果一个数据库相关的操作出现了问题，我们可以根据输出的SQL语句快速排查问题。对于以往的开发过程，我们会经常使用到sout或者debug模式来调节、跟踪我们的代码执行过程。但是现在使用Mybatis是基于接口、配置文件的源代码执行过程。因此，我们必须选择日志工具来作为我们开发，调节程序的工具。
+
+Mybatis内置的日志工厂提供日志功能，具体的日志实现有以下几种工具：
+
+- SLF4J
+- LOG4J(deprecated since 3.5.9)【掌握】
+- LOG4J2
+- JDK_LOGGING
+- COMMONS_LOGGING
+- STDOUT_LOGGING【掌握】标准日志输出
+- NO_LOGGING
+
+具体选择哪个日志实现工具由MyBatis的内置日志工厂确定。
+
+**标准日志实现**
+
+指定 MyBatis 应该使用哪个日志记录实现。如果此设置不存在，则会自动发现日志记录实现。
+
+```xml
+<settings>
+    <setting name="logImpl" value="STDOUT_LOGGING"/>
+</settings>
+```
+
+测试，可以看到控制台有大量的输出！我们可以通过这些输出来判断程序到底哪里出了Bug
+
+### 7.2 LOG4J
+
+> 简介
+
+- Log4j是Apache的一个开源项目
+- 通过使用Log4j，我们可以控制日志信息输送的目的地：控制台，文本，GUI组件....
+- 我们也可以控制每一条日志的输出格式；
+- 通过定义每一条日志信息的级别，我们能够更加细致地控制日志的生成过程。最令人感兴趣的就是，这些可以通过一个配置文件来灵活地进行配置，而不需要修改应用的代码。
+
+> 使用步骤
+
+1、导入log4j的包
+
+```xml
+<dependency>
+   <groupId>log4j</groupId>
+   <artifactId>log4j</artifactId>
+   <version>1.2.17</version>
+</dependency>
+```
+
+2、配置文件编写
+
+```properties
+# 将等级为DEBUG的日志信息输出到console和file这两个目的地，console和file的定义在下面的代码
+log4j.rootLogger=DEBUG,console,file
+
+# 控制台输出的相关设置
+log4j.appender.console = org.apache.log4j.ConsoleAppender
+log4j.appender.console.Target = System.out
+log4j.appender.console.Threshold=DEBUG
+log4j.appender.console.layout = org.apache.log4j.PatternLayout
+log4j.appender.console.layout.ConversionPattern=[%c]-%m%n
+
+# 文件输出的相关设置
+log4j.appender.file = org.apache.log4j.RollingFileAppender
+log4j.appender.file.File=./log/kuang.log
+log4j.appender.file.MaxFileSize=10mb
+log4j.appender.file.Threshold=DEBUG
+log4j.appender.file.layout=org.apache.log4j.PatternLayout
+log4j.appender.file.layout.ConversionPattern=[%p][%d{yy-MM-dd}][%c]%m%n
+
+# 日志输出级别
+log4j.logger.org.mybatis=DEBUG
+log4j.logger.java.sql=DEBUG
+log4j.logger.java.sql.Statement=DEBUG
+log4j.logger.java.sql.ResultSet=DEBUG
+log4j.logger.java.sql.PreparedStatement=DEBUG
+```
+
+3、setting设置日志实现
+
+```xml
+<settings>
+   <setting name="logImpl" value="LOG4J"/>
+</settings>
+```
+
+4、在程序中使用Log4j进行输出！
+
+```java
+//注意导包：org.apache.log4j.Logger
+static Logger logger = Logger.getLogger(MyTest.class); // 参数为当前类的class对象
+
+@Test
+public void selectUser() {
+   logger.info("info：进入selectUser方法");
+   logger.debug("debug：进入selectUser方法");
+   logger.error("error: 进入selectUser方法");
+   SqlSession session = MybatisUtils.getSession();
+   UserMapper mapper = session.getMapper(UserMapper.class);
+   List<User> users = mapper.selectUser();
+   for (User user: users){
+       System.out.println(user);
+  }
+   session.close();
+}
+```
+
+5、测试，看控制台输出！
+
+- 使用Log4j 输出日志
+- 可以看到还生成了一个日志的文件 【需要修改file的日志级别】
+
+## 8. 分页
+
+**思考：为什么需要分页？**
+
+在学习mybatis等持久层框架的时候，会经常对数据进行增删改查操作，使用最多的是对数据库进行查询操作，如果查询大量数据的时候，我们往往使用分页进行查询，也就是每次处理小部分数据，这样对数据库压力就在可控范围内。
+
+### 8.1 使用Limit实现分页
+
+```sql
+# 语法
+SELECT * FROM table LIMIT stratIndex，pageSize
+
+SELECT * FROM table LIMIT 5,10; // 检索记录行 6-15  
+
+# 为了检索从某一个偏移量到记录集的结束所有的记录行，可以指定第二个参数为 -1
+SELECT * FROM table LIMIT 95,-1; // 检索记录行 96-last.  
+
+# 如果只给定一个参数，它表示返回最大的记录行数目
+# 换句话说，LIMIT n 等价于 LIMIT 0,n。
+SELECT * FROM table LIMIT 5; //检索前 5 个记录行  
+```
+
+> 1、Mapper接口，参数为map
+
+```java
+// 选择全部用户实现分页
+List<User> selectUser(Map<String,Integer> map);
+```
+
+> 2、修改Mapper文件
+
+```xml
+<select id="selectUser" parameterType="map" resultType="user">
+    select * from user limit #{startIndex},#{pageSize}
+</select>
+```
+
+> 3、在测试类中传入参数测试
+
+- 推断：起始位置 = （当前页面 - 1 ） * 页面大小
+
+```java
+// 分页查询 , 两个参数startIndex , pageSize
+@Test
+public void testSelectUser() {
+   SqlSession session = MybatisUtils.getSession();
+   UserMapper mapper = session.getMapper(UserMapper.class);
+
+   int currentPage = 1;  //第几页
+   int pageSize = 2;  //每页显示几个
+   Map<String,Integer> map = new HashMap<String,Integer>();
+   map.put("startIndex",(currentPage-1)*pageSize);
+   map.put("pageSize",pageSize);
+
+   List<User> users = mapper.selectUser(map);
+
+   for (User user: users){
+       System.out.println(user);
+  }
+
+   session.close();
+}
+```
+
+### 8.2 RowBounds分页
+
+我们除了使用Limit在SQL层面实现分页，也可以使用RowBounds在Java代码层面实现分页，当然此种方式作为了解即可。我们来看下如何实现的！
+
+**步骤：**
+
+1、mapper接口
+
+```java
+// 选择全部用户RowBounds实现分页
+List<User> getUserByRowBounds();
+```
+
+2、mapper文件
+
+```xml
+<select id="getUserByRowBounds" resultType="user">
+    select * from user
+</select>
+```
+
+3、测试类
+
+在这里，我们需要使用RowBounds类
+
+```java
+@Test
+public void testUserByRowBounds() {
+   SqlSession session = MybatisUtils.getSession();
+
+   int currentPage = 2;  //第几页
+   int pageSize = 2;  //每页显示几个
+   RowBounds rowBounds = new RowBounds((currentPage-1)*pageSize,pageSize);
+
+   //通过session.**方法进行传递rowBounds，[此种方式现在已经不推荐使用了]
+   List<User> users = session.selectList("com.kuang.mapper.UserMapper.getUserByRowBounds", null, rowBounds);
+
+   for (User user: users){
+       System.out.println(user);
+  }
+   session.close();
+}
+```
+
+
+
+### 8.3 分页插件
+
+了解即可，可以自己尝试使用
+
+官方文档：https://pagehelper.github.io/
+
+## 9. 使用注解开发
+
+### 9.1 面向接口编程
+
+- 大家之前都学过面向对象编程，也学习过接口，但在真正的开发中，很多时候我们会选择面向接口编程
+- **根本原因 : ==解耦== , 可拓展 , 提高复用 , 分层开发中 , 上层不用管具体的实现 , 大家都遵守共同的标准 , 使得开发变得容易 , 规范性更好**
+- 在一个面向对象的系统中，系统的各种功能是由许许多多的不同对象协作完成的。在这种情况下，各个对象内部是如何实现自己的，对系统设计人员来讲就不那么重要了；
+- 而各个对象之间的协作关系则成为系统设计的关键。小到不同类之间的通信，大到各模块之间的交互，在系统设计之初都是要着重考虑的，这也是系统设计的主要工作内容。面向接口编程就是指按照这种思想来编程。
+
+**关于接口的理解**
+
+- 接口从更深层次的理解，应是定义（规范，约束）与实现（名实分离的原则）的分离。
+- 接口的本身反映了系统设计人员对系统的抽象理解。
+- 接口应有两类：
+- - 第一类是对一个个体的抽象，它可对应为一个抽象体(abstract class)；
+  - 第二类是对一个个体某一方面的抽象，即形成一个抽象面（interface）；
+- 一个体有可能有多个抽象面。抽象体与抽象面是有区别的。
+
+**三个面向区别**
+
+- 面向对象是指，我们考虑问题时，以对象为单位，考虑它的属性及方法 .
+- 面向过程是指，我们考虑问题时，以一个具体的流程（事务过程）为单位，考虑它的实现 .
+- 接口设计与非接口设计是针对复用技术而言的，与面向对象（过程）不是一个问题.更多的体现就是对系统整体的架构
+
+### 9.2 使用注解开发
+
+- **mybatis 最初配置信息是基于 XML，映射语句(SQL)也是定义在 XML 中的。而到MyBatis 3提供了新的基于注解的配置。不幸的是，Java 注解的的表达力和灵活性十分有限。最强大的 MyBatis 映射并不能用注解来构建。**
+- sql 类型主要分成 :
+  - `@select ()`
+  - `@update ()`
+  - `@Insert ()`
+  - `@delete ()`
+
+**注意：**利用注解开发就不需要mapper.xml映射文件了。
+
+> 1、在接口中添加注解
+
+```java
+// 查询全部用户
+@Select("select id,name,pwd password from user")
+public List<User> getAllUser();
+```
+
+> 2、在mybatis的核心配置文件中注入
+
+```xml
+<!--使用class绑定接口-->
+<mappers>
+   <mapper class="com.kuang.mapper.UserMapper"/>
+</mappers>
+```
+
+> 3、测试
+
+```java
+@Test
+public void testGetAllUser() {
+   SqlSession session = MybatisUtils.getSession();
+   //本质上利用了jvm的动态代理机制
+   UserMapper mapper = session.getMapper(UserMapper.class);
+
+   List<User> users = mapper.getAllUser();
+   for (User user : users){
+       System.out.println(user);
+  }
+
+   session.close();
+}
+```
+
+> 4、利用Debug查看本质
+
+本质：反射机制实现
+
+底层：动态代理
+
+![注解debug](images/Mybatis/640.webp)
+
+### 9.3 CRUD
+
+
+
+## 10. Mybatis详细的执行流程
+
+![执行流程](images/Mybatis/640-16425925829972.webp)
+
+
+
+
+
+
 
