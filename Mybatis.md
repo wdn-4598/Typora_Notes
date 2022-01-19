@@ -42,6 +42,8 @@
 
 思路：搭建环境 -> 导入Mybatis -> 编写代码 -> 测试
 
+![Mybatis流程图](images/Mybatis/Mybatis流程图.png)
+
 ### 2.1 搭建数据库
 
 ```sql
@@ -285,26 +287,6 @@ maven由于他的约定大于配置，我们之后可能遇到我们写的配置
    		</resource>
     </resources>
 </build>
-```
-
-> 拓展
-
-#### SqlSessionFactoryBuilder
-
-这个类可以被实例化、使用和丢弃，**一旦创建了 SqlSessionFactory，就不再需要它了。 因此 SqlSessionFactoryBuilder 实例的最佳作用域是方法作用域（也就是局部方法变量）。** 你可以重用 SqlSessionFactoryBuilder 来创建多个 SqlSessionFactory 实例，但最好还是不要一直保留着它，以保证所有的 XML 解析资源可以被释放给更重要的事情。
-
-#### SqlSessionFactory
-
-**SqlSessionFactory 一旦被创建就应该在应用的运行期间一直存在，没有任何理由丢弃它或重新创建另一个实例。** 使用 SqlSessionFactory 的最佳实践是在应用运行期间不要重复创建多次，多次重建 SqlSessionFactory 被视为一种代码“坏习惯”。**因此 SqlSessionFactory 的最佳作用域是应用作用域。** 有很多方法可以做到，**最简单的就是使用单例模式或者静态单例模式。**
-
-#### SqlSession
-
-每个线程都应该有它自己的 SqlSession 实例。SqlSession 的实例不是线程安全的，因此 **是不能被共享的，所以它的最佳的作用域是请求或方法作用域。 绝对不能将 SqlSession 实例的引用放在一个类的静态域，甚至一个类的实例变量也不行。 也绝不能将 SqlSession 实例的引用放在任何类型的托管作用域中，** 比如 Servlet 框架中的 HttpSession。 如果你现在正在使用一种 Web 框架，考虑将 SqlSession 放在一个和 HTTP 请求相似的作用域中。 换句话说，**每次收到 HTTP 请求，就可以打开一个 SqlSession，返回一个响应后，就关闭它。** 这个关闭操作很重要，为了确保每次都能执行关闭操作，你应该把这个关闭操作放到 finally 块中。 下面的示例就是一个确保 SqlSession 关闭的标准模式：
-
-```java
-try (SqlSession session = sqlSessionFactory.openSession()) {
-  // 你的应用逻辑代码
-}
 ```
 
 
@@ -833,4 +815,94 @@ dataSource 元素使用标准的 JDBC 数据源接口来配置 JDBC 连接对象
 > Mybatis默认的事务管理器就是JDBC，连接池是POOLED
 
 #### 映射器 mappers
+
+既然 MyBatis 的行为已经由上述元素配置完了，我们现在就要来定义 SQL 映射语句了。 但首先，我们需要告诉 MyBatis 到哪里去找到这些语句。 在自动查找资源方面，Java 并没有提供一个很好的解决方案，所以最好的办法是直接告诉 MyBatis 到哪里去找映射文件。 你可以使用相对于类路径的资源引用，或完全限定资源定位符（包括 `file:///` 形式的 URL），或类名和包名等。
+
+**方式一：【推荐使用】**
+
+```xml
+<!-- 使用相对于类路径的资源引用 -->
+<mappers>
+  <mapper resource="org/mybatis/builder/AuthorMapper.xml"/>
+  <mapper resource="org/mybatis/builder/BlogMapper.xml"/>
+  <mapper resource="org/mybatis/builder/PostMapper.xml"/>
+</mappers>
+```
+
+**方式二：使用完全限定资源定位符【不推荐】**
+
+```xml
+<!-- 使用完全限定资源定位符（URL） -->
+<mappers>
+  <mapper url="file:///var/mappers/AuthorMapper.xml"/>
+  <mapper url="file:///var/mappers/BlogMapper.xml"/>
+  <mapper url="file:///var/mappers/PostMapper.xml"/>
+</mappers>
+```
+
+**方式三：使用class文件绑定注册**
+
+```xml
+<!-- 使用映射器接口实现类的完全限定类名 -->
+<mappers>
+  <mapper class="org.mybatis.builder.AuthorMapper"/>
+  <mapper class="org.mybatis.builder.BlogMapper"/>
+  <mapper class="org.mybatis.builder.PostMapper"/>
+</mappers>
+```
+
+注意点：
+
+- 接口和他的Mapper配置文件必须同名！
+- 接口和他的Mapper配置文件必须在同一个包下！
+
+**方式三：使用扫描包进行注入绑定**
+
+```xml
+<!-- 将包内的映射器接口实现全部注册为映射器 -->
+<mappers>
+  <package name="org.mybatis.builder"/>
+</mappers>
+```
+
+注意点：
+
+- 接口和他的Mapper配置文件必须同名！
+- 接口和他的Mapper配置文件必须在同一个包下！
+
+这些配置会告诉 MyBatis 去哪里找映射文件，剩下的细节就应该是每个 SQL 映射文件了。
+
+## 5. 作用域和生命周期
+
+作用域和生命周期是至关重要的，因为错误的使用会导致非常严重的**并发问题**。
+
+------
+
+**提示** **对象生命周期和依赖注入框架**
+
+依赖注入框架可以创建线程安全的、基于事务的 SqlSession 和映射器，并将它们直接注入到你的 bean 中，因此可以直接忽略它们的生命周期。 如果对如何通过依赖注入框架使用 MyBatis 感兴趣，可以研究一下 MyBatis-Spring 或 MyBatis-Guice 两个子项目。
+
+------
+
+### 5.1 SqlSessionFactoryBuilder
+
+这个类可以被实例化、使用和丢弃，**一旦创建了 SqlSessionFactory，就不再需要它了。 因此 SqlSessionFactoryBuilder 实例的最佳作用域是方法作用域（也就是局部方法变量）。** 你可以重用 SqlSessionFactoryBuilder 来创建多个 SqlSessionFactory 实例，但最好还是不要一直保留着它，以保证所有的 XML 解析资源可以被释放给更重要的事情。
+
+### 5.2 SqlSessionFactory
+
+**SqlSessionFactory 一旦被创建就应该在应用的运行期间一直存在，没有任何理由丢弃它或重新创建另一个实例。** 使用 SqlSessionFactory 的最佳实践是在应用运行期间不要重复创建多次，多次重建 SqlSessionFactory 被视为一种代码“坏习惯”。**因此 SqlSessionFactory 的最佳作用域是应用作用域。** 有很多方法可以做到，**最简单的就是使用单例模式或者静态单例模式。**
+
+### 5.3 SqlSession
+
+每个线程都应该有它自己的 SqlSession 实例。SqlSession 的实例不是线程安全的，因此 **是不能被共享的，所以它的最佳的作用域是请求或方法作用域。 绝对不能将 SqlSession 实例的引用放在一个类的静态域，甚至一个类的实例变量也不行。 也绝不能将 SqlSession 实例的引用放在任何类型的托管作用域中，** 比如 Servlet 框架中的 HttpSession。 如果你现在正在使用一种 Web 框架，考虑将 SqlSession 放在一个和 HTTP 请求相似的作用域中。 换句话说，**每次收到 HTTP 请求，就可以打开一个 SqlSession，返回一个响应后，就关闭它。** 这个关闭操作很重要，为了确保每次都能执行关闭操作，你应该把这个关闭操作放到 finally 块中。 下面的示例就是一个确保 SqlSession 关闭的标准模式：
+
+```java
+try (SqlSession session = sqlSessionFactory.openSession()) {
+  // 你的应用逻辑代码
+}
+```
+
+在所有代码中都遵循这种使用模式，可以保证所有数据库资源都能被正确地关闭。
+
+![image-20220119111852248](images/Mybatis/image-20220119111852248.png)
 
